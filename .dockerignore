@@ -1,0 +1,10 @@
+.next
+node_modules
+npm-debug.log*
+data
+tmp
+.git
+.env
+*.zip
+*.tar.gz
+tsconfig.tsbuildinfo

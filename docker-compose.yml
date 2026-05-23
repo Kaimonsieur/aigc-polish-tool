@@ -1,0 +1,15 @@
+services:
+  aigc-polish:
+    build:
+      context: .
+    container_name: aigc-polish
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
