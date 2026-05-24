@@ -239,6 +239,7 @@ export default function Home() {
   const [aigcReport, setAigcReport] = useState<AigcReport | null>(null);
 
   const chars = useMemo(() => countChars(text), [text]);
+  const resultChars = useMemo(() => countChars(resultText), [resultText]);
   const taskDone = result?.status === "success";
   const taskFailed = result?.status === "failed";
   const resultReady = taskDone && Boolean(resultText);
@@ -789,7 +790,10 @@ export default function Home() {
 
             <div className="editor-pane">
               <div className="pane-head">
-                <span className="pane-label">改写结果</span>
+                <div className="flex items-center gap-3">
+                  <span className="pane-label">改写结果</span>
+                  <span className="meta-badge">{resultChars} 字</span>
+                </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     className="flex items-center gap-2 text-sm font-semibold text-[#777]"
