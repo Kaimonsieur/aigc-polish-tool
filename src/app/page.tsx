@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  ScanSearch,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -44,7 +45,18 @@ type RewriteResponse = {
 type DialogType = "privacy" | "terms" | "feedback" | "contact" | null;
 type EditingPane = "source" | "result" | null;
 const INLINE_DIFF_CHAR_LIMIT = 900;
+const AIGC_DETECT_CHAR_LIMIT = 2000;
 const POLL_INTERVAL_MS = 1800;
+
+type AigcReport = {
+  percent: number;
+  label: string;
+  suggestion: string;
+  detail: string;
+  chars: number;
+  provider: string;
+  requestId?: string;
+};
 
 type MeData = {
   user: { account: string; points: number; role: "user" | "admin"; created_at: string } | null;
@@ -223,6 +235,8 @@ export default function Home() {
   const [copying, setCopying] = useState(false);
   const [me, setMe] = useState<MeData | null>(null);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  const [detecting, setDetecting] = useState<"source" | "result" | null>(null);
+  const [aigcReport, setAigcReport] = useState<AigcReport | null>(null);
 
   const chars = useMemo(() => countChars(text), [text]);
   const taskDone = result?.status === "success";
@@ -509,6 +523,44 @@ export default function Home() {
     }
   }
 
+  async function detectAigc(target: "source" | "result") {
+    const detectText = target === "source" ? text : resultText;
+    const detectChars = countChars(detectText);
+    setMessage("");
+    setAigcReport(null);
+
+    if (!detectChars) {
+      setMessage(target === "source" ? "请先输入需要检测的原文。" : "请先生成或填写润色结果。");
+      return;
+    }
+    if (detectChars > AIGC_DETECT_CHAR_LIMIT) {
+      setMessage(`腾讯云单次检测建议控制在 ${AIGC_DETECT_CHAR_LIMIT} 字以内，请截取重点段落检测。`);
+      return;
+    }
+
+    setDetecting(target);
+    try {
+      const response = await apiFetch("/api/aigc-detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: detectText }),
+      });
+      const body = await parseJson<AigcReport>(response);
+      if (!body.ok) {
+        setMessage(body.message.includes("请先登录") ? "请先使用卡密登录后再检测 AIGC。" : body.message);
+        if (body.message.includes("请先登录")) {
+          window.location.assign("/login");
+        }
+        return;
+      }
+      setAigcReport(body.data);
+    } catch {
+      setMessage("AIGC 检测失败，请稍后重试。");
+    } finally {
+      setDetecting(null);
+    }
+  }
+
   return (
     <main>
       <div className="mobile-blocker">
@@ -688,6 +740,15 @@ export default function Home() {
                     {loading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
                     {loading ? "润色中" : "开始改写"}
                   </button>
+                  <button
+                    className="button-secondary flex items-center gap-2 px-4 py-2 text-sm"
+                    onClick={() => detectAigc("source")}
+                    disabled={detecting !== null || file !== null || !text.trim()}
+                    type="button"
+                  >
+                    {detecting === "source" ? <Loader2 className="animate-spin" size={16} /> : <ScanSearch size={16} />}
+                    检测原文
+                  </button>
                 </div>
               </div>
               <div className="pane-body pane-body-editor">
@@ -789,6 +850,15 @@ export default function Home() {
                   >
                     查看对比
                   </button>
+                  <button
+                    className="button-secondary flex items-center gap-2 px-4 py-2 text-sm"
+                    disabled={detecting !== null || !currentDownloadText}
+                    onClick={() => detectAigc("result")}
+                    type="button"
+                  >
+                    {detecting === "result" ? <Loader2 className="animate-spin" size={16} /> : <ScanSearch size={16} />}
+                    检测结果
+                  </button>
                 </div>
               </div>
               <div className="pane-body pane-body-editor">
@@ -868,6 +938,27 @@ export default function Home() {
               </div>
             </div>
           </div>
+          {aigcReport && (
+            <div className="aigc-report">
+              <div>
+                <p className="aigc-report-kicker">腾讯云 AIGC 检测</p>
+                <div className="aigc-report-score">
+                  <span>{aigcReport.percent}%</span>
+                  <strong>{aigcReport.label}</strong>
+                </div>
+                <p className="aigc-report-detail">{aigcReport.suggestion}</p>
+              </div>
+              <div className="aigc-meter" aria-label={`AI率 ${aigcReport.percent}%`}>
+                <span style={{ width: `${aigcReport.percent}%` }} />
+              </div>
+              <div className="aigc-report-meta">
+                <span>{aigcReport.provider}</span>
+                <span>{aigcReport.chars} 字</span>
+                {aigcReport.requestId && <span>RequestId: {aigcReport.requestId}</span>}
+              </div>
+              <p className="aigc-report-note">{aigcReport.detail}</p>
+            </div>
+          )}
           {message && <p className="mt-5 rounded-2xl bg-red-50 px-5 py-3 text-sm text-red-700">{message}</p>}
         </div>
       </section>

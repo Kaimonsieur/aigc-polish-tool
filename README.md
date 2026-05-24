@@ -6,6 +6,7 @@
 
 - 首页直接粘贴文本或上传 TXT / Word / PDF。
 - 支持三种润色模式：轻度润色、AIGC 降重润色、深度改写。
+- 支持接入腾讯云文本内容安全 AI生成检测，展示 AI率百分比和风险提示。
 - 短文本支持左右主编辑区红绿对比，长文自动关闭重型精细对比以保证稳定。
 - 卡密登录和自动扣点，兑换后开始计时。
 - 管理后台可生成用户卡密、管理员卡密，管理卡密状态，更新润色规则。
@@ -43,6 +44,10 @@ http://服务器IP:3000
 GROK_API_URL=http://你的模型服务/v1/chat/completions
 GROK_MODEL=grok-4.20-fast
 GROK_API_KEY=你的模型key
+TENCENT_SECRET_ID=你的腾讯云SecretId
+TENCENT_SECRET_KEY=你的腾讯云SecretKey
+TENCENT_REGION=ap-guangzhou
+TENCENT_AIGC_BIZ_TYPE=你的AI生成检测BizType
 SESSION_SECRET=换成一段足够长的随机字符串
 BOOTSTRAP_ADMIN_CARD=换成你的首次管理员卡密
 NEXT_PUBLIC_API_BASE_URL=
@@ -54,6 +59,8 @@ HOSTNAME=0.0.0.0
 说明：
 
 - `BOOTSTRAP_ADMIN_CARD` 是首次部署用的管理员卡密，启动后可用它登录 `/login` 进入 `/admin`。
+- `TENCENT_AIGC_BIZ_TYPE` 需要在腾讯云文本内容安全控制台创建 AI生成检测策略后复制。
+- AIGC 检测按钮要求卡密登录，单次建议检测 2000 字以内的重点段落。
 - 管理员进入后台后，可以继续生成新的管理员卡密和用户卡密。
 - 生产环境务必更换 `SESSION_SECRET` 和 `BOOTSTRAP_ADMIN_CARD`。
 - 单容器部署时 `NEXT_PUBLIC_API_BASE_URL` 保持为空，前端会请求同域 API。
