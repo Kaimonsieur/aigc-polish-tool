@@ -853,7 +853,7 @@ export default function Home() {
                     disabled={loading || detectingAfterRewrite}
                     type="button"
                     aria-pressed={detectAfterRewrite}
-                    title={`开启后，润色成功会自动检测结果一次，建议 ${AIGC_DETECT_CHAR_LIMIT} 字以内，检测结果会按任务缓存。`}
+                    title={`开启后，润色成功会自动检测结果一次，建议 ${AIGC_DETECT_CHAR_LIMIT} 字以内。`}
                   >
                     {detectingAfterRewrite ? (
                       <Loader2 className="animate-spin" size={16} />
@@ -863,7 +863,6 @@ export default function Home() {
                       </div>
                     )}
                     <span>{detectingAfterRewrite ? "检测中" : "润色后检测"}</span>
-                    <span className="detect-cost">0.05/次</span>
                   </button>
                   <button className="button-secondary pane-action-button" disabled={!taskDone || !result?.taskId || copying} onClick={copyResult} type="button">
                     <Clipboard size={16} />

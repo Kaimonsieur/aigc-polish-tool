@@ -940,8 +940,8 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  margin-left: calc((min(1260px, calc(100vw - 32px)) - min(1440px, calc(100vw - 32px))) / 2);
-  width: min(1440px, calc(100vw - 32px));
+  margin-left: calc((min(1260px, calc(100vw - 32px)) - min(1520px, calc(100vw - 32px))) / 2);
+  width: min(1520px, calc(100vw - 32px));
 }
 
 .editor-pane {
@@ -971,10 +971,12 @@ textarea {
 .pane-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 0.65rem;
   border-bottom: 1px solid #f1f1f1;
   background: #fbfbfb;
-  padding: 0.85rem 1.25rem 0.95rem;
+  min-height: 112px;
+  align-content: start;
+  padding: 0.85rem 1.1rem 0.9rem;
 }
 
 .pane-title-row {
@@ -995,9 +997,15 @@ textarea {
 .pane-actions {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.45rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pane-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .pane-action-button,
@@ -1012,15 +1020,15 @@ textarea {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  padding: 0.58rem 0.9rem;
-  font-size: 0.88rem;
+  gap: 0.38rem;
+  padding: 0.52rem 0.78rem;
+  font-size: 0.84rem;
   font-weight: 900;
   white-space: nowrap;
 }
 
 .pane-action-primary {
-  min-width: 128px;
+  min-width: 116px;
 }
 
 .pane-switch-button {
@@ -1052,16 +1060,7 @@ textarea {
 }
 
 .pane-detect-button {
-  gap: 0.5rem;
-}
-
-.detect-cost {
-  border-radius: 999px;
-  background: #f0fdf4;
-  color: #15803d;
-  font-size: 0.72rem;
-  font-weight: 900;
-  padding: 0.2rem 0.48rem;
+  gap: 0.42rem;
 }
 
 .pane-label {
