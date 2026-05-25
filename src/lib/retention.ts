@@ -17,6 +17,7 @@ export function purgeExpiredRewriteData() {
   try {
     for (const task of expiredTasks) {
       db.prepare("DELETE FROM api_logs WHERE task_id = ?").run(task.id);
+      db.prepare("DELETE FROM aigc_detection_reports WHERE task_id = ?").run(task.id);
       db.prepare("DELETE FROM credit_logs WHERE ref_type = 'rewrite_task' AND ref_id = ?").run(task.id);
       db.prepare("DELETE FROM rewrite_tasks WHERE id = ?").run(task.id);
     }

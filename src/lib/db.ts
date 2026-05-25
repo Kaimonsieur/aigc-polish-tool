@@ -126,6 +126,22 @@ function runMigrations(database: DatabaseSync) {
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS aigc_detection_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      provider TEXT NOT NULL,
+      chars INTEGER NOT NULL,
+      percent INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      suggestion TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      request_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(task_id) REFERENCES rewrite_tasks(id),
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL

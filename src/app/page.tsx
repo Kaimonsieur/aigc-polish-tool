@@ -17,7 +17,6 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  ScanSearch,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -56,6 +55,7 @@ type AigcReport = {
   chars: number;
   provider: string;
   requestId?: string;
+  cached?: boolean;
 };
 
 type MeData = {
@@ -235,7 +235,8 @@ export default function Home() {
   const [copying, setCopying] = useState(false);
   const [me, setMe] = useState<MeData | null>(null);
   const [recordsOpen, setRecordsOpen] = useState(false);
-  const [detecting, setDetecting] = useState<"source" | "result" | null>(null);
+  const [detectAfterRewrite, setDetectAfterRewrite] = useState(false);
+  const [detectingAfterRewrite, setDetectingAfterRewrite] = useState(false);
   const [aigcReport, setAigcReport] = useState<AigcReport | null>(null);
 
   const chars = useMemo(() => countChars(text), [text]);
@@ -274,7 +275,7 @@ export default function Home() {
   async function loadResultText(task: RewriteResponse, signal: AbortSignal) {
     if (task.status !== "success") {
       setResultText("");
-      return;
+      return "";
     }
 
     const inlineText = task.output || task.outputPreview || "";
@@ -283,7 +284,7 @@ export default function Home() {
     }
 
     if (!task.taskId) {
-      return;
+      return inlineText;
     }
 
     const response = await apiFetch(`/api/result/text?id=${encodeURIComponent(task.taskId)}`, { signal });
@@ -291,9 +292,11 @@ export default function Home() {
       if (!inlineText) {
         throw new Error("完整结果读取失败");
       }
-      return;
+      return inlineText;
     }
-    setResultText(await response.text());
+    const fullText = await response.text();
+    setResultText(fullText);
+    return fullText;
   }
 
   function downloadEditedText(kind: "txt" | "docx") {
@@ -374,6 +377,7 @@ export default function Home() {
     const selected = event.target.files?.[0] || null;
     setFile(selected);
     setEditingPane(null);
+    setAigcReport(null);
     if (selected) {
       setText("");
       setResult(null);
@@ -387,6 +391,7 @@ export default function Home() {
     const currentText = text;
     const submittedSnapshot =
       !currentFile && countChars(currentText) <= INLINE_DIFF_CHAR_LIMIT ? currentText : "";
+    const shouldDetectAfterRewrite = detectAfterRewrite;
     const runId = rewriteRunRef.current + 1;
     rewriteRunRef.current = runId;
     rewriteAbortRef.current?.abort();
@@ -401,6 +406,8 @@ export default function Home() {
     setResultText("");
     setSubmittedText(submittedSnapshot);
     setEditingPane(null);
+    setAigcReport(null);
+    setDetectingAfterRewrite(false);
 
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     if (controller.signal.aborted || rewriteRunRef.current !== runId) return;
@@ -471,6 +478,11 @@ export default function Home() {
         setMessage(latest.error || "润色失败，已自动退回点数，请稍后重试。");
       } else if (latest.status === "success") {
         await loadResultText(latest, controller.signal);
+        if (shouldDetectAfterRewrite && latest.taskId) {
+          setLoading(false);
+          setProcessingText("");
+          await detectAigcForTask(latest.taskId, runId, controller.signal);
+        }
       }
 
       refreshMe();
@@ -500,6 +512,8 @@ export default function Home() {
     setLoading(false);
     setProcessingText("");
     setMessage("");
+    setAigcReport(null);
+    setDetectingAfterRewrite(false);
   }
 
   async function logout() {
@@ -524,29 +538,18 @@ export default function Home() {
     }
   }
 
-  async function detectAigc(target: "source" | "result") {
-    const detectText = target === "source" ? text : resultText;
-    const detectChars = countChars(detectText);
+  async function detectAigcForTask(taskId: string, runId: number, signal: AbortSignal) {
     setMessage("");
-    setAigcReport(null);
-
-    if (!detectChars) {
-      setMessage(target === "source" ? "请先输入需要检测的原文。" : "请先生成或填写润色结果。");
-      return;
-    }
-    if (detectChars > AIGC_DETECT_CHAR_LIMIT) {
-      setMessage(`腾讯云单次检测建议控制在 ${AIGC_DETECT_CHAR_LIMIT} 字以内，请截取重点段落检测。`);
-      return;
-    }
-
-    setDetecting(target);
+    setDetectingAfterRewrite(true);
     try {
       const response = await apiFetch("/api/aigc-detect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: detectText }),
+        body: JSON.stringify({ taskId }),
+        signal,
       });
       const body = await parseJson<AigcReport>(response);
+      if (signal.aborted || rewriteRunRef.current !== runId) return;
       if (!body.ok) {
         setMessage(body.message.includes("请先登录") ? "请先使用卡密登录后再检测 AIGC。" : body.message);
         if (body.message.includes("请先登录")) {
@@ -556,9 +559,12 @@ export default function Home() {
       }
       setAigcReport(body.data);
     } catch {
+      if (signal.aborted || rewriteRunRef.current !== runId) return;
       setMessage("AIGC 检测失败，请稍后重试。");
     } finally {
-      setDetecting(null);
+      if (rewriteRunRef.current === runId) {
+        setDetectingAfterRewrite(false);
+      }
     }
   }
 
@@ -713,12 +719,14 @@ export default function Home() {
           <div className="dual-editor">
             <div className="editor-pane">
               <div className="pane-head">
-                <div className="flex items-center gap-3">
-                  <span className="pane-label">原始文本</span>
-                  <span className="meta-badge">{file ? "文档" : `${chars} 字`}</span>
+                <div className="pane-title-row">
+                  <div className="pane-title-left">
+                    <span className="pane-label">原始文本</span>
+                    <span className="meta-badge">{file ? "文档" : `${chars} 字`}</span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <label className="button-secondary flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
+                <div className="pane-actions">
+                  <label className="button-secondary pane-action-button cursor-pointer">
                     <Upload size={16} />
                     导入文档
                     <input
@@ -728,27 +736,18 @@ export default function Home() {
                       onChange={onFileChange}
                     />
                   </label>
-                  <button className="button-secondary flex items-center gap-2 px-4 py-2 text-sm" onClick={clearEditor} type="button">
+                  <button className="button-secondary pane-action-button" onClick={clearEditor} type="button">
                     <Trash2 size={16} />
                     清空
                   </button>
                   <button
-                    className="button-primary flex items-center gap-2 px-5 py-2 text-sm"
+                    className="button-primary pane-action-button pane-action-primary"
                     onClick={startRewrite}
-                    disabled={loading || (!file && !text.trim())}
+                    disabled={loading || detectingAfterRewrite || (!file && !text.trim())}
                     type="button"
                   >
                     {loading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
                     {loading ? "润色中" : "开始改写"}
-                  </button>
-                  <button
-                    className="button-secondary flex items-center gap-2 px-4 py-2 text-sm"
-                    onClick={() => detectAigc("source")}
-                    disabled={detecting !== null || file !== null || !text.trim()}
-                    type="button"
-                  >
-                    {detecting === "source" ? <Loader2 className="animate-spin" size={16} /> : <ScanSearch size={16} />}
-                    检测原文
                   </button>
                 </div>
               </div>
@@ -778,7 +777,10 @@ export default function Home() {
                         autoFocus={editingPane === "source"}
                         className="pane-textarea"
                         value={text}
-                        onChange={(event) => setText(event.target.value)}
+                        onChange={(event) => {
+                          setText(event.target.value);
+                          setAigcReport(null);
+                        }}
                         onFocus={() => setEditingPane("source")}
                         placeholder="在此粘贴需要处理的论文段落..."
                       />
@@ -790,13 +792,15 @@ export default function Home() {
 
             <div className="editor-pane">
               <div className="pane-head">
-                <div className="flex items-center gap-3">
-                  <span className="pane-label">改写结果</span>
-                  <span className="meta-badge">{resultChars} 字</span>
+                <div className="pane-title-row">
+                  <div className="pane-title-left">
+                    <span className="pane-label">改写结果</span>
+                    <span className="meta-badge">{resultChars} 字</span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="pane-actions">
                   <button
-                    className="flex items-center gap-2 text-sm font-semibold text-[#777]"
+                    className="pane-switch-button"
                     onClick={() => {
                       setShowDiff((value) => {
                         const next = !value;
@@ -807,6 +811,7 @@ export default function Home() {
                       });
                     }}
                     type="button"
+                    aria-pressed={showDiff}
                   >
                     <div className={showDiff ? "switch" : "switch bg-[#eee]"}>
                       <div className={showDiff ? "switch-dot" : "switch-dot left-[3px] right-auto"} />
@@ -842,26 +847,35 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <button className="button-secondary flex items-center gap-2 px-4 py-2 text-sm" disabled={!taskDone || !result?.taskId || copying} onClick={copyResult} type="button">
+                  <button
+                    className={detectAfterRewrite ? "pane-switch-button pane-detect-button pane-switch-active" : "pane-switch-button pane-detect-button"}
+                    onClick={() => setDetectAfterRewrite((value) => !value)}
+                    disabled={loading || detectingAfterRewrite}
+                    type="button"
+                    aria-pressed={detectAfterRewrite}
+                    title={`开启后，润色成功会自动检测结果一次，建议 ${AIGC_DETECT_CHAR_LIMIT} 字以内，检测结果会按任务缓存。`}
+                  >
+                    {detectingAfterRewrite ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <div className={detectAfterRewrite ? "switch" : "switch switch-off"}>
+                        <div className={detectAfterRewrite ? "switch-dot" : "switch-dot switch-dot-off"} />
+                      </div>
+                    )}
+                    <span>{detectingAfterRewrite ? "检测中" : "润色后检测"}</span>
+                    <span className="detect-cost">0.05/次</span>
+                  </button>
+                  <button className="button-secondary pane-action-button" disabled={!taskDone || !result?.taskId || copying} onClick={copyResult} type="button">
                     <Clipboard size={16} />
                     {copying ? "复制中" : "复制"}
                   </button>
                   <button
-                    className="button-secondary flex items-center gap-2 px-4 py-2 text-sm"
+                    className="button-secondary pane-action-button"
                     disabled={!inlineDiffAllowed}
                     onClick={() => setEditingPane(null)}
                     type="button"
                   >
                     查看对比
-                  </button>
-                  <button
-                    className="button-secondary flex items-center gap-2 px-4 py-2 text-sm"
-                    disabled={detecting !== null || !currentDownloadText}
-                    onClick={() => detectAigc("result")}
-                    type="button"
-                  >
-                    {detecting === "result" ? <Loader2 className="animate-spin" size={16} /> : <ScanSearch size={16} />}
-                    检测结果
                   </button>
                 </div>
               </div>
@@ -903,7 +917,10 @@ export default function Home() {
                         autoFocus={editingPane === "result"}
                         className="pane-textarea"
                         value={resultText}
-                        onChange={(event) => setResultText(event.target.value)}
+                        onChange={(event) => {
+                          setResultText(event.target.value);
+                          setAigcReport(null);
+                        }}
                         onFocus={() => setEditingPane("result")}
                         placeholder="改写结果将在此显示，也可以在生成后继续手动编辑..."
                         aria-label="改写结果"
@@ -942,6 +959,17 @@ export default function Home() {
               </div>
             </div>
           </div>
+          {detectingAfterRewrite && (
+            <div className="aigc-report aigc-report-loading">
+              <div className="aigc-loading-head">
+                <Loader2 className="animate-spin" size={18} />
+                <div>
+                  <p className="aigc-report-kicker">腾讯云 AIGC 检测</p>
+                  <p className="aigc-report-detail">正在检测本次润色后的结果，完成后会自动展示报告。</p>
+                </div>
+              </div>
+            </div>
+          )}
           {aigcReport && (
             <div className="aigc-report">
               <div>
@@ -958,6 +986,7 @@ export default function Home() {
               <div className="aigc-report-meta">
                 <span>{aigcReport.provider}</span>
                 <span>{aigcReport.chars} 字</span>
+                {aigcReport.cached && <span>已缓存</span>}
                 {aigcReport.requestId && <span>RequestId: {aigcReport.requestId}</span>}
               </div>
               <p className="aigc-report-note">{aigcReport.detail}</p>
