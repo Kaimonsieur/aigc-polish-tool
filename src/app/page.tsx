@@ -628,24 +628,23 @@ export default function Home() {
             <Image className="brand-logo" src="/brand-logo.png" alt="论文降AIGC" width={176} height={60} priority />
           </Link>
           <div className="hidden items-center gap-2 md:flex">
-            <a className="rounded-full px-4 py-2 text-sm font-semibold text-[#555] hover:bg-[#f5f5f5]" href="#editor">
+            <a className="nav-link" href="#editor">
               开始使用
             </a>
-            <a className="rounded-full px-4 py-2 text-sm font-semibold text-[#555] hover:bg-[#f5f5f5]" href="#faq">
+            <a className="nav-link" href="#faq">
               常见问题
             </a>
             {publishedAnnouncement && (
               <button
-                className="nav-announcement-button"
+                className="nav-link"
                 onClick={() => setAnnouncement(publishedAnnouncement)}
                 type="button"
               >
-                <Sparkles size={15} />
                 公告
               </button>
             )}
             <button
-              className="rounded-full px-4 py-2 text-sm font-semibold text-[#555] hover:bg-[#f5f5f5]"
+              className="nav-link"
               onClick={() => setDialog("feedback")}
               type="button"
             >
