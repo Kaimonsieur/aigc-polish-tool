@@ -249,6 +249,7 @@ export default function Home() {
   const [detectAfterRewrite, setDetectAfterRewrite] = useState(false);
   const [detectingAfterRewrite, setDetectingAfterRewrite] = useState(false);
   const [aigcReport, setAigcReport] = useState<AigcReport | null>(null);
+  const [publishedAnnouncement, setPublishedAnnouncement] = useState<AnnouncementData | null>(null);
   const [announcement, setAnnouncement] = useState<AnnouncementData | null>(null);
 
   const chars = useMemo(() => countChars(text), [text]);
@@ -378,6 +379,7 @@ export default function Home() {
         if (!active || !nextAnnouncement) {
           return;
         }
+        setPublishedAnnouncement(nextAnnouncement);
         const dismissedVersion = window.localStorage.getItem(ANNOUNCEMENT_DISMISSED_KEY);
         if (dismissedVersion !== nextAnnouncement.version) {
           setAnnouncement(nextAnnouncement);
@@ -632,6 +634,16 @@ export default function Home() {
             <a className="rounded-full px-4 py-2 text-sm font-semibold text-[#555] hover:bg-[#f5f5f5]" href="#faq">
               常见问题
             </a>
+            {publishedAnnouncement && (
+              <button
+                className="nav-announcement-button"
+                onClick={() => setAnnouncement(publishedAnnouncement)}
+                type="button"
+              >
+                <Sparkles size={15} />
+                公告
+              </button>
+            )}
             <button
               className="rounded-full px-4 py-2 text-sm font-semibold text-[#555] hover:bg-[#f5f5f5]"
               onClick={() => setDialog("feedback")}
