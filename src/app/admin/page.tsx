@@ -9,6 +9,7 @@ import {
   Download,
   FileText,
   KeyRound,
+  Megaphone,
   Save,
   ScrollText,
   Settings,
@@ -19,7 +20,7 @@ import {
 import { PACKAGES } from "@/lib/config";
 import { apiFetch } from "@/lib/client-api";
 
-type AdminSection = "overview" | "create" | "cards" | "rules" | "records";
+type AdminSection = "overview" | "create" | "cards" | "announcement" | "rules" | "records";
 
 type Overview = {
   stats: { users: number; tasks: number; cardsUnused: number; cardsRedeemed: number };
@@ -70,6 +71,16 @@ type PromptData = {
   defaultRules: string;
 };
 
+type AnnouncementData = {
+  enabled: boolean;
+  title: string;
+  content: string;
+  buttonText: string;
+  buttonUrl: string;
+  version: string;
+  updatedAt: string;
+};
+
 const roleOptions = [
   { value: "user", label: "普通用户卡密", description: "购买用户登录主页并使用润色额度" },
   { value: "admin", label: "管理员专属卡密", description: "进入后台生成卡密、管理规则和查看数据" },
@@ -79,6 +90,7 @@ const sections: Array<{ id: AdminSection; label: string; description: string; Ic
   { id: "overview", label: "总览", description: "核心数据", Icon: BadgeCheck },
   { id: "create", label: "生成卡密", description: "新批次", Icon: KeyRound },
   { id: "cards", label: "卡密管理", description: "批次和状态", Icon: Ticket },
+  { id: "announcement", label: "网站公告", description: "弹窗发布", Icon: Megaphone },
   { id: "rules", label: "规则配置", description: "润色指令", Icon: Settings },
   { id: "records", label: "记录用户", description: "任务和用户", Icon: Users },
 ];
@@ -88,6 +100,7 @@ export default function AdminPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [cards, setCards] = useState<CardsData | null>(null);
   const [promptData, setPromptData] = useState<PromptData | null>(null);
+  const [announcementData, setAnnouncementData] = useState<AnnouncementData | null>(null);
   const [points, setPoints] = useState(String(PACKAGES[0]?.points || 4));
   const [quantity, setQuantity] = useState("10");
   const [name, setName] = useState("轻量体验卡");
@@ -95,6 +108,7 @@ export default function AdminPage() {
   const [createdCodes, setCreatedCodes] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [promptMessage, setPromptMessage] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
   const [cardMessage, setCardMessage] = useState("");
   const [selectOpen, setSelectOpen] = useState<"points" | "role" | null>(null);
 
@@ -111,40 +125,44 @@ export default function AdminPage() {
   ];
 
   async function refresh() {
-    const [overviewBody, cardsBody, promptBody] = await Promise.all([
+    const [overviewBody, cardsBody, promptBody, announcementBody] = await Promise.all([
       apiFetch("/api/admin/overview").then((response) => response.json()),
       apiFetch("/api/admin/cards").then((response) => response.json()),
       apiFetch("/api/admin/prompt").then((response) => response.json()),
+      apiFetch("/api/admin/announcement").then((response) => response.json()),
     ]);
 
-    if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok) {
+    if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok) {
       window.location.assign("/login/");
       return;
     }
     setOverview(overviewBody.data);
     setCards(cardsBody.data);
     setPromptData(promptBody.data);
+    setAnnouncementData(announcementBody.data.announcement);
   }
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const [overviewBody, cardsBody, promptBody] = await Promise.all([
+      const [overviewBody, cardsBody, promptBody, announcementBody] = await Promise.all([
         apiFetch("/api/admin/overview").then((response) => response.json()),
         apiFetch("/api/admin/cards").then((response) => response.json()),
         apiFetch("/api/admin/prompt").then((response) => response.json()),
+        apiFetch("/api/admin/announcement").then((response) => response.json()),
       ]);
 
       if (!active) {
         return;
       }
-      if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok) {
+      if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok) {
         window.location.assign("/login/");
         return;
       }
       setOverview(overviewBody.data);
       setCards(cardsBody.data);
       setPromptData(promptBody.data);
+      setAnnouncementData(announcementBody.data.announcement);
     }
     load();
     return () => {
@@ -198,6 +216,23 @@ export default function AdminPage() {
     setPromptMessage("润色规则已保存，下一次润色会使用新规则。");
   }
 
+  async function saveAnnouncement() {
+    setAnnouncementMessage("");
+    const body = await apiFetch("/api/admin/announcement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(announcementData),
+    }).then((response) => response.json());
+
+    if (!body.ok) {
+      setAnnouncementMessage(body.message);
+      return;
+    }
+
+    setAnnouncementData(body.data.announcement);
+    setAnnouncementMessage(body.data.announcement.enabled ? "公告已发布，前台会按新版本弹窗展示。" : "公告已保存为未发布状态。");
+  }
+
   async function updateCardStatus(id: number, action: "void" | "restore") {
     setCardMessage("");
     const body = await apiFetch("/api/admin/cards", {
@@ -215,7 +250,7 @@ export default function AdminPage() {
     refresh();
   }
 
-  if (!overview || !cards || !promptData) {
+  if (!overview || !cards || !promptData || !announcementData) {
     return <main className="shell py-10">加载中...</main>;
   }
 
@@ -456,6 +491,118 @@ export default function AdminPage() {
                 </div>
               </AdminPanel>
             </div>
+          )}
+
+          {activeSection === "announcement" && (
+            <AdminPanel title="网站弹窗公告" badge={announcementData.enabled ? "发布中" : "未发布"}>
+              <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+                <div>
+                  <div className="announcement-admin-switch">
+                    <div>
+                      <strong>前台弹窗公告</strong>
+                      <span>{announcementData.enabled ? "已开启，用户进入首页会看到公告" : "已关闭，前台不会显示公告"}</span>
+                    </div>
+                    <button
+                      className={announcementData.enabled ? "pane-switch-button pane-switch-active" : "pane-switch-button"}
+                      onClick={() => setAnnouncementData({ ...announcementData, enabled: !announcementData.enabled })}
+                      type="button"
+                      aria-pressed={announcementData.enabled}
+                    >
+                      <div className={announcementData.enabled ? "switch" : "switch switch-off"}>
+                        <div className={announcementData.enabled ? "switch-dot" : "switch-dot switch-dot-off"} />
+                      </div>
+                      {announcementData.enabled ? "开启" : "关闭"}
+                    </button>
+                  </div>
+
+                  <label className="mt-4 block text-sm font-semibold">公告标题</label>
+                  <input
+                    className="field mt-2 w-full px-4 py-3"
+                    value={announcementData.title}
+                    onChange={(event) => setAnnouncementData({ ...announcementData, title: event.target.value })}
+                    placeholder="例如：服务更新公告"
+                  />
+
+                  <label className="mt-4 block text-sm font-semibold">公告内容</label>
+                  <textarea
+                    className="field announcement-admin-textarea mt-2 w-full px-4 py-3 text-sm"
+                    value={announcementData.content}
+                    onChange={(event) => setAnnouncementData({ ...announcementData, content: event.target.value })}
+                    placeholder="写给用户看的公告内容，支持换行展示。"
+                  />
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
+                    <div>
+                      <label className="block text-sm font-semibold">按钮文案</label>
+                      <input
+                        className="field mt-2 w-full px-4 py-3"
+                        value={announcementData.buttonText}
+                        onChange={(event) => setAnnouncementData({ ...announcementData, buttonText: event.target.value })}
+                        placeholder="我知道了"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold">按钮链接</label>
+                      <input
+                        className="field mt-2 w-full px-4 py-3"
+                        value={announcementData.buttonUrl}
+                        onChange={(event) => setAnnouncementData({ ...announcementData, buttonUrl: event.target.value })}
+                        placeholder="/login 或 https://..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button className="button-primary flex items-center gap-2 px-5 py-3 text-sm" onClick={saveAnnouncement} type="button">
+                      <Save size={16} />
+                      保存并更新版本
+                    </button>
+                    <button
+                      className="button-secondary px-5 py-3 text-sm font-bold"
+                      onClick={() =>
+                        setAnnouncementData({
+                          ...announcementData,
+                          enabled: false,
+                          title: "网站公告",
+                          content: "",
+                          buttonText: "我知道了",
+                          buttonUrl: "",
+                        })
+                      }
+                      type="button"
+                    >
+                      清空草稿
+                    </button>
+                  </div>
+                  {announcementMessage && <p className="admin-message">{announcementMessage}</p>}
+                </div>
+
+                <div>
+                  <p className="mb-3 text-sm font-black text-[#111]">弹窗预览</p>
+                  <div className="announcement-preview">
+                    <span className="announcement-preview-badge">
+                      <Megaphone size={15} />
+                      网站公告
+                    </span>
+                    <h3>{announcementData.title || "网站公告"}</h3>
+                    <div className="announcement-preview-content">
+                      {(announcementData.content || "这里会展示公告正文。用户关闭后，同一版本不会重复弹出；保存发布会生成新版本。").split(/\n+/).map((paragraph, index) => (
+                        <p key={`${index}-${paragraph}`}>{paragraph}</p>
+                      ))}
+                    </div>
+                    <div className="announcement-preview-actions">
+                      <span>{announcementData.buttonUrl ? announcementData.buttonUrl : "无跳转链接"}</span>
+                      <strong>{announcementData.buttonText || "我知道了"}</strong>
+                    </div>
+                  </div>
+                  <div className="admin-hint mt-4">
+                    <strong>版本信息</strong>
+                    <span>当前版本：{announcementData.version || "-"}</span>
+                    <span>更新时间：{announcementData.updatedAt || "未保存"}</span>
+                  </div>
+                </div>
+              </div>
+            </AdminPanel>
           )}
 
           {activeSection === "rules" && (

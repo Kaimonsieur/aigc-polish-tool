@@ -639,7 +639,7 @@ textarea {
 
 .admin-section-tabs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -740,6 +740,115 @@ textarea {
   max-height: 520px;
   resize: vertical;
   line-height: 1.75;
+}
+
+.announcement-admin-textarea {
+  min-height: 260px;
+  max-height: 440px;
+  resize: vertical;
+  line-height: 1.85;
+}
+
+.announcement-admin-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #eeeeee;
+  border-radius: 18px;
+  background: #fafafa;
+  padding: 1rem;
+}
+
+.announcement-admin-switch strong {
+  display: block;
+  color: #111111;
+  font-weight: 900;
+}
+
+.announcement-admin-switch span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #777777;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.announcement-preview {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #eeeeee;
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #fbfbfb 100%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+  padding: 1.45rem;
+}
+
+.announcement-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: #111111;
+}
+
+.announcement-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #eeeeee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #555555;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.45rem 0.7rem;
+}
+
+.announcement-preview h3 {
+  margin-top: 1.2rem;
+  color: #111111;
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.announcement-preview-content {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  color: #555555;
+  font-size: 0.94rem;
+  line-height: 1.9;
+}
+
+.announcement-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid #eeeeee;
+  padding-top: 1rem;
+}
+
+.announcement-preview-actions span {
+  min-width: 0;
+  overflow: hidden;
+  color: #999999;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.announcement-preview-actions strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.85rem;
 }
 
 .admin-select-wrap {
@@ -1465,6 +1574,71 @@ textarea {
 .modal-close:hover {
   background: #f5f5f5;
   color: #111111;
+}
+
+.announcement-backdrop {
+  z-index: 130;
+}
+
+.announcement-card {
+  position: relative;
+  width: min(560px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.22);
+  padding: 2rem;
+  animation: modal-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.announcement-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: #111111;
+}
+
+.announcement-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #eeeeee;
+  border-radius: 999px;
+  background: #fafafa;
+  color: #555555;
+  font-size: 0.82rem;
+  font-weight: 900;
+  padding: 0.48rem 0.75rem;
+}
+
+.announcement-card h3 {
+  margin-top: 1.25rem;
+  padding-right: 2.5rem;
+  color: #111111;
+  font-size: 1.85rem;
+  font-weight: 900;
+  line-height: 1.28;
+}
+
+.announcement-content {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1.1rem;
+  color: #555555;
+  font-size: 1rem;
+  line-height: 1.95;
+}
+
+.announcement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1.6rem;
+  border-top: 1px solid #eeeeee;
+  padding-top: 1.2rem;
 }
 
 .login-shell {

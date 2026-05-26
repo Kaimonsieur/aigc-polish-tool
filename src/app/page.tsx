@@ -46,6 +46,7 @@ type EditingPane = "source" | "result" | null;
 const INLINE_DIFF_CHAR_LIMIT = 900;
 const AIGC_DETECT_CHAR_LIMIT = 2000;
 const POLL_INTERVAL_MS = 1800;
+const ANNOUNCEMENT_DISMISSED_KEY = "aigc_announcement_dismissed";
 
 type AigcReport = {
   percent: number;
@@ -56,6 +57,16 @@ type AigcReport = {
   provider: string;
   requestId?: string;
   cached?: boolean;
+};
+
+type AnnouncementData = {
+  enabled: boolean;
+  title: string;
+  content: string;
+  buttonText: string;
+  buttonUrl: string;
+  version: string;
+  updatedAt: string;
 };
 
 type MeData = {
@@ -238,6 +249,7 @@ export default function Home() {
   const [detectAfterRewrite, setDetectAfterRewrite] = useState(false);
   const [detectingAfterRewrite, setDetectingAfterRewrite] = useState(false);
   const [aigcReport, setAigcReport] = useState<AigcReport | null>(null);
+  const [announcement, setAnnouncement] = useState<AnnouncementData | null>(null);
 
   const chars = useMemo(() => countChars(text), [text]);
   const resultChars = useMemo(() => countChars(resultText), [resultText]);
@@ -336,6 +348,13 @@ export default function Home() {
       .replace(/"/g, "&quot;");
   }
 
+  function dismissAnnouncement() {
+    if (announcement?.version) {
+      window.localStorage.setItem(ANNOUNCEMENT_DISMISSED_KEY, announcement.version);
+    }
+    setAnnouncement(null);
+  }
+
   useEffect(() => {
     let active = true;
     async function loadMe() {
@@ -345,6 +364,29 @@ export default function Home() {
       }
     }
     loadMe();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadAnnouncement() {
+      try {
+        const body = await apiFetch("/api/announcement").then((response) => response.json());
+        const nextAnnouncement = body.ok ? body.data.announcement as AnnouncementData | null : null;
+        if (!active || !nextAnnouncement) {
+          return;
+        }
+        const dismissedVersion = window.localStorage.getItem(ANNOUNCEMENT_DISMISSED_KEY);
+        if (dismissedVersion !== nextAnnouncement.version) {
+          setAnnouncement(nextAnnouncement);
+        }
+      } catch {
+        // Announcement loading should never block the editor.
+      }
+    }
+    loadAnnouncement();
     return () => {
       active = false;
     };
@@ -1132,6 +1174,40 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {announcement && (
+        <div className="modal-backdrop announcement-backdrop" onClick={dismissAnnouncement}>
+          <div className="announcement-card" onClick={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={dismissAnnouncement} type="button" aria-label="关闭公告">
+              <X size={22} />
+            </button>
+            <div className="announcement-badge">
+              <Sparkles size={16} />
+              网站公告
+            </div>
+            <h3>{announcement.title}</h3>
+            <div className="announcement-content">
+              {announcement.content.split(/\n+/).map((paragraph, index) => (
+                <p key={`${index}-${paragraph}`}>{paragraph}</p>
+              ))}
+            </div>
+            <div className="announcement-actions">
+              <button className="button-secondary px-6 py-3 text-sm font-bold" onClick={dismissAnnouncement} type="button">
+                稍后再看
+              </button>
+              {announcement.buttonUrl ? (
+                <a className="button-primary px-7 py-3 text-sm" href={announcement.buttonUrl} onClick={dismissAnnouncement}>
+                  {announcement.buttonText || "我知道了"}
+                </a>
+              ) : (
+                <button className="button-primary px-7 py-3 text-sm" onClick={dismissAnnouncement} type="button">
+                  {announcement.buttonText || "我知道了"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
