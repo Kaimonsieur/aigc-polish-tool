@@ -3,6 +3,7 @@ import { expiresAtFromValidityDays } from "@/lib/cards";
 import { corsOptions } from "@/lib/cors";
 import { getDb, getOne } from "@/lib/db";
 import { fail, ok, errorMessage } from "@/lib/http";
+import { tryPublicCardLogin } from "@/lib/public-card";
 import { purgeExpiredRewriteData } from "@/lib/retention";
 import { hashCardCode, hashPassword, normalizeCardCode } from "@/lib/security";
 
@@ -30,6 +31,15 @@ export async function POST(request: Request) {
     const normalized = normalizeCardCode(String(code || ""));
     if (!normalized) {
       return fail("请输入卡密");
+    }
+
+    const publicUser = tryPublicCardLogin(normalized);
+    if (publicUser) {
+      const session = await createSession(publicUser.id);
+      return ok(
+        { account: publicUser.account, role: publicUser.role, points: publicUser.points, reused: true, publicPool: true, session },
+        request,
+      );
     }
 
     const db = getDb();

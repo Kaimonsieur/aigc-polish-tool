@@ -39,6 +39,10 @@ function reportPayload(report: CachedReport, cached: boolean) {
 export async function POST(request: Request) {
   try {
     const user = await requireUserFromRequest(request);
+    if (user.role === "public") {
+      return fail("公益卡密不支持 AIGC 检测，请使用付费卡密后再开启检测。", 403, request);
+    }
+
     const body = await request.json();
     const taskId = String(body.taskId || "");
     if (!taskId) {

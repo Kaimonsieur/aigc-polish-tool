@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   return ok({
     user,
-    accountExpired: Boolean(user.role !== "admin" && user.expires_at && new Date(user.expires_at).getTime() < Date.now()),
+    accountExpired: Boolean(user.role !== "admin" && user.role !== "public" && user.expires_at && new Date(user.expires_at).getTime() < Date.now()),
     freeUsedToday: free?.used_count || 0,
     usage,
     credits,

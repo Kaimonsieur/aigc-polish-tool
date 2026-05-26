@@ -70,7 +70,7 @@ type AnnouncementData = {
 };
 
 type MeData = {
-  user: { account: string; points: number; role: "user" | "admin"; created_at: string } | null;
+  user: { account: string; points: number; role: "user" | "admin" | "public"; created_at: string } | null;
   freeUsedToday?: number;
   retentionHours?: number;
   usage?: Array<{
@@ -277,6 +277,8 @@ export default function Home() {
   const showSourceDiff = Boolean(showDiff && leftDiffParts && editingPane !== "source" && !file);
   const showResultDiff = Boolean(showDiff && rightDiffParts && editingPane !== "result" && !loading && !taskFailed);
   const currentDownloadText = resultText.trim();
+  const isPublicUser = me?.user?.role === "public";
+  const detectSwitchOn = detectAfterRewrite && !isPublicUser;
 
   async function refreshMe() {
     const body = await apiFetch("/api/me").then((response) => response.json());
@@ -435,7 +437,7 @@ export default function Home() {
     const currentText = text;
     const submittedSnapshot =
       !currentFile && countChars(currentText) <= INLINE_DIFF_CHAR_LIMIT ? currentText : "";
-    const shouldDetectAfterRewrite = detectAfterRewrite;
+    const shouldDetectAfterRewrite = detectAfterRewrite && !isPublicUser;
     const runId = rewriteRunRef.current + 1;
     rewriteRunRef.current = runId;
     rewriteAbortRef.current?.abort();
@@ -710,7 +712,9 @@ export default function Home() {
               <>
                 <div>
                   <p className="text-sm font-black text-[#111]">
-                    {me.user.role === "admin" ? "管理员卡密" : "卡密用户"} · 剩余 {me.user.points} 点
+                    {me.user.role === "admin" ? "管理员卡密" : me.user.role === "public" ? "公益卡密" : "卡密用户"} ·
+                    {me.user.role === "public" ? " 公共池剩余 " : " 剩余 "}
+                    {me.user.points} 点
                   </p>
                   <p className="mt-1 text-xs text-[#777]">
                     记录和文档保留 {me.retentionHours || 24} 小时，过期后自动删除
@@ -901,21 +905,28 @@ export default function Home() {
                     )}
                   </div>
                   <button
-                    className={detectAfterRewrite ? "pane-switch-button pane-detect-button pane-switch-active" : "pane-switch-button pane-detect-button"}
-                    onClick={() => setDetectAfterRewrite((value) => !value)}
-                    disabled={loading || detectingAfterRewrite}
+                    className={detectSwitchOn ? "pane-switch-button pane-detect-button pane-switch-active" : "pane-switch-button pane-detect-button"}
+                    onClick={() => {
+                      if (isPublicUser) {
+                        setDetectAfterRewrite(false);
+                        setMessage("公益卡密不支持 AIGC 检测，请使用付费卡密后再开启检测。");
+                        return;
+                      }
+                      setDetectAfterRewrite((value) => !value);
+                    }}
+                    disabled={loading || detectingAfterRewrite || isPublicUser}
                     type="button"
-                    aria-pressed={detectAfterRewrite}
-                    title={`开启后，润色成功会自动检测结果一次，建议 ${AIGC_DETECT_CHAR_LIMIT} 字以内。`}
+                    aria-pressed={detectSwitchOn}
+                    title={isPublicUser ? "公益卡密不支持 AIGC 检测" : `开启后，润色成功会自动检测结果一次，建议 ${AIGC_DETECT_CHAR_LIMIT} 字以内。`}
                   >
                     {detectingAfterRewrite ? (
                       <Loader2 className="animate-spin" size={16} />
                     ) : (
-                      <div className={detectAfterRewrite ? "switch" : "switch switch-off"}>
-                        <div className={detectAfterRewrite ? "switch-dot" : "switch-dot switch-dot-off"} />
+                      <div className={detectSwitchOn ? "switch" : "switch switch-off"}>
+                        <div className={detectSwitchOn ? "switch-dot" : "switch-dot switch-dot-off"} />
                       </div>
                     )}
-                    <span>{detectingAfterRewrite ? "检测中" : "润色后检测"}</span>
+                    <span>{isPublicUser ? "公益禁用检测" : detectingAfterRewrite ? "检测中" : "润色后检测"}</span>
                   </button>
                   <button className="button-secondary pane-action-button" disabled={!taskDone || !result?.taskId || copying} onClick={copyResult} type="button">
                     <Clipboard size={16} />

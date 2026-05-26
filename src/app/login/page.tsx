@@ -11,7 +11,7 @@ type ApiResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
 type LoginData = {
   account: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "public";
   points: number;
   reused: boolean;
   session?: {

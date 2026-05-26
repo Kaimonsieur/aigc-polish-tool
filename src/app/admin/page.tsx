@@ -8,10 +8,10 @@ import {
   ChevronDown,
   Download,
   FileText,
+  HeartHandshake,
   KeyRound,
   Megaphone,
   Save,
-  ScrollText,
   Settings,
   Ticket,
   Users,
@@ -20,7 +20,7 @@ import {
 import { PACKAGES } from "@/lib/config";
 import { apiFetch } from "@/lib/client-api";
 
-type AdminSection = "overview" | "create" | "cards" | "announcement" | "rules" | "records";
+type AdminSection = "overview" | "create" | "cards" | "publicCard" | "announcement" | "rules" | "records";
 
 type Overview = {
   stats: { users: number; tasks: number; cardsUnused: number; cardsRedeemed: number };
@@ -81,6 +81,23 @@ type AnnouncementData = {
   updatedAt: string;
 };
 
+type PublicCardData = {
+  config: {
+    enabled: boolean;
+    codePreview: string;
+    dailyPoints: number;
+    note: string;
+    accountId: number | null;
+    lastResetDay: string;
+    lastResetAt: string;
+    updatedAt: string;
+  };
+  account: { id: number; account: string; points: number; created_at: string } | null;
+  today: string;
+  remainingPoints: number;
+  configured: boolean;
+};
+
 const roleOptions = [
   { value: "user", label: "普通用户卡密", description: "购买用户登录主页并使用润色额度" },
   { value: "admin", label: "管理员专属卡密", description: "进入后台生成卡密、管理规则和查看数据" },
@@ -90,6 +107,7 @@ const sections: Array<{ id: AdminSection; label: string; description: string; Ic
   { id: "overview", label: "总览", description: "核心数据", Icon: BadgeCheck },
   { id: "create", label: "生成卡密", description: "新批次", Icon: KeyRound },
   { id: "cards", label: "卡密管理", description: "批次和状态", Icon: Ticket },
+  { id: "publicCard", label: "公益卡密", description: "公共额度", Icon: HeartHandshake },
   { id: "announcement", label: "网站公告", description: "弹窗发布", Icon: Megaphone },
   { id: "rules", label: "规则配置", description: "润色指令", Icon: Settings },
   { id: "records", label: "记录用户", description: "任务和用户", Icon: Users },
@@ -101,6 +119,7 @@ export default function AdminPage() {
   const [cards, setCards] = useState<CardsData | null>(null);
   const [promptData, setPromptData] = useState<PromptData | null>(null);
   const [announcementData, setAnnouncementData] = useState<AnnouncementData | null>(null);
+  const [publicCardData, setPublicCardData] = useState<PublicCardData | null>(null);
   const [points, setPoints] = useState(String(PACKAGES[0]?.points || 4));
   const [quantity, setQuantity] = useState("10");
   const [name, setName] = useState("轻量体验卡");
@@ -110,6 +129,8 @@ export default function AdminPage() {
   const [promptMessage, setPromptMessage] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [cardMessage, setCardMessage] = useState("");
+  const [publicMessage, setPublicMessage] = useState("");
+  const [publicCode, setPublicCode] = useState("");
   const [selectOpen, setSelectOpen] = useState<"points" | "role" | null>(null);
 
   const selectedPackage = PACKAGES.find((item) => String(item.points) === points) || PACKAGES[0];
@@ -125,14 +146,15 @@ export default function AdminPage() {
   ];
 
   async function refresh() {
-    const [overviewBody, cardsBody, promptBody, announcementBody] = await Promise.all([
+    const [overviewBody, cardsBody, promptBody, announcementBody, publicBody] = await Promise.all([
       apiFetch("/api/admin/overview").then((response) => response.json()),
       apiFetch("/api/admin/cards").then((response) => response.json()),
       apiFetch("/api/admin/prompt").then((response) => response.json()),
       apiFetch("/api/admin/announcement").then((response) => response.json()),
+      apiFetch("/api/admin/public-card").then((response) => response.json()),
     ]);
 
-    if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok) {
+    if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok || !publicBody.ok) {
       window.location.assign("/login/");
       return;
     }
@@ -140,22 +162,24 @@ export default function AdminPage() {
     setCards(cardsBody.data);
     setPromptData(promptBody.data);
     setAnnouncementData(announcementBody.data.announcement);
+    setPublicCardData(publicBody.data);
   }
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const [overviewBody, cardsBody, promptBody, announcementBody] = await Promise.all([
+      const [overviewBody, cardsBody, promptBody, announcementBody, publicBody] = await Promise.all([
         apiFetch("/api/admin/overview").then((response) => response.json()),
         apiFetch("/api/admin/cards").then((response) => response.json()),
         apiFetch("/api/admin/prompt").then((response) => response.json()),
         apiFetch("/api/admin/announcement").then((response) => response.json()),
+        apiFetch("/api/admin/public-card").then((response) => response.json()),
       ]);
 
       if (!active) {
         return;
       }
-      if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok) {
+      if (!overviewBody.ok || !cardsBody.ok || !promptBody.ok || !announcementBody.ok || !publicBody.ok) {
         window.location.assign("/login/");
         return;
       }
@@ -163,6 +187,7 @@ export default function AdminPage() {
       setCards(cardsBody.data);
       setPromptData(promptBody.data);
       setAnnouncementData(announcementBody.data.announcement);
+      setPublicCardData(publicBody.data);
     }
     load();
     return () => {
@@ -250,7 +275,51 @@ export default function AdminPage() {
     refresh();
   }
 
-  if (!overview || !cards || !promptData || !announcementData) {
+  async function savePublicCard() {
+    if (!publicCardData) {
+      return;
+    }
+
+    setPublicMessage("");
+    const body = await apiFetch("/api/admin/public-card", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: publicCardData.config.enabled,
+        code: publicCode,
+        dailyPoints: publicCardData.config.dailyPoints,
+        note: publicCardData.config.note,
+      }),
+    }).then((response) => response.json());
+
+    if (!body.ok) {
+      setPublicMessage(body.message);
+      return;
+    }
+
+    setPublicCode("");
+    setPublicCardData(body.data);
+    setPublicMessage(body.data.config.enabled ? "公益卡密配置已启用，今日公共额度已同步。" : "公益卡密配置已保存为关闭状态。");
+  }
+
+  async function resetPublicQuota() {
+    setPublicMessage("");
+    const body = await apiFetch("/api/admin/public-card", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset" }),
+    }).then((response) => response.json());
+
+    if (!body.ok) {
+      setPublicMessage(body.message);
+      return;
+    }
+
+    setPublicCardData(body.data);
+    setPublicMessage("今日公益公共额度已手动重置。");
+  }
+
+  if (!overview || !cards || !promptData || !announcementData || !publicCardData) {
     return <main className="shell py-10">加载中...</main>;
   }
 
@@ -493,6 +562,129 @@ export default function AdminPage() {
             </div>
           )}
 
+          {activeSection === "publicCard" && (
+            <AdminPanel title="公益卡密" badge={publicCardData.config.enabled ? "已开启" : "未开启"}>
+              <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+                <div>
+                  <div className="announcement-admin-switch">
+                    <div>
+                      <strong>公共公益额度池</strong>
+                      <span>
+                        {publicCardData.config.enabled
+                          ? "用户输入公益卡密后共用同一个额度池，每天按北京时间自动重置"
+                          : "关闭后，公益卡密不能登录，已配置的卡密会继续保留"}
+                      </span>
+                    </div>
+                    <button
+                      className={publicCardData.config.enabled ? "pane-switch-button pane-switch-active" : "pane-switch-button"}
+                      onClick={() =>
+                        setPublicCardData({
+                          ...publicCardData,
+                          config: { ...publicCardData.config, enabled: !publicCardData.config.enabled },
+                        })
+                      }
+                      type="button"
+                      aria-pressed={publicCardData.config.enabled}
+                    >
+                      <div className={publicCardData.config.enabled ? "switch" : "switch switch-off"}>
+                        <div className={publicCardData.config.enabled ? "switch-dot" : "switch-dot switch-dot-off"} />
+                      </div>
+                      {publicCardData.config.enabled ? "开启" : "关闭"}
+                    </button>
+                  </div>
+
+                  <label className="mt-4 block text-sm font-semibold">公益卡密</label>
+                  <input
+                    className="field mt-2 w-full px-4 py-3 font-mono"
+                    value={publicCode}
+                    onChange={(event) => setPublicCode(event.target.value)}
+                    placeholder={publicCardData.configured ? "留空则沿用当前卡密" : "请输入新的公益卡密"}
+                  />
+                  <p className="mt-2 text-xs leading-6 text-[#888]">
+                    当前卡密预览：{publicCardData.config.codePreview || "未设置"}。未设置卡密时不能开启公益登录。
+                  </p>
+
+                  <label className="mt-4 block text-sm font-semibold">每日公共额度</label>
+                  <input
+                    className="field mt-2 w-full px-4 py-3"
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={publicCardData.config.dailyPoints}
+                    onChange={(event) =>
+                      setPublicCardData({
+                        ...publicCardData,
+                        config: { ...publicCardData.config, dailyPoints: Math.max(1, Number(event.target.value) || 1) },
+                      })
+                    }
+                  />
+                  <p className="mt-2 text-xs leading-6 text-[#888]">
+                    这是所有公益用户共用的每日总额度，不是每个人单独额度。
+                  </p>
+
+                  <label className="mt-4 block text-sm font-semibold">后台备注</label>
+                  <textarea
+                    className="field mt-2 min-h-[130px] w-full resize-y px-4 py-3 text-sm leading-7"
+                    value={publicCardData.config.note}
+                    onChange={(event) =>
+                      setPublicCardData({
+                        ...publicCardData,
+                        config: { ...publicCardData.config, note: event.target.value },
+                      })
+                    }
+                    placeholder="例如：公益体验池，每日固定额度，先到先用。"
+                  />
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button className="button-primary flex items-center gap-2 px-5 py-3 text-sm" onClick={savePublicCard} type="button">
+                      <Save size={16} />
+                      保存公益卡密
+                    </button>
+                    <button className="button-secondary px-5 py-3 text-sm font-bold" onClick={resetPublicQuota} type="button">
+                      重置今日额度
+                    </button>
+                  </div>
+                  {publicMessage && <p className="admin-message">{publicMessage}</p>}
+                </div>
+
+                <div className="space-y-4">
+                  <InfoGrid
+                    items={[
+                      ["今日日期", publicCardData.today],
+                      ["公共池剩余", `${publicCardData.remainingPoints} 点`],
+                      ["每日重置额度", `${publicCardData.config.dailyPoints} 点`],
+                      ["卡密状态", publicCardData.config.enabled ? "已开启" : "未开启"],
+                      ["公共账号", publicCardData.account?.account || "未创建"],
+                      ["最近重置", publicCardData.config.lastResetAt || "未重置"],
+                    ]}
+                  />
+                  <div className="admin-hint admin-hint-warning">
+                    <strong>公益卡密不支持 AIGC 检测</strong>
+                    <span>
+                      公益额度只用于文本润色。前台会隐藏检测开关，后端检测接口也会拒绝公益账号调用，避免产生腾讯云检测成本。
+                    </span>
+                  </div>
+                  <div className="admin-hint">
+                    <strong>公共额度规则</strong>
+                    <span>所有用户输入同一个公益卡密后都会进入同一个公共账号，扣点从同一个池子里扣。</span>
+                    <span>到新的一天会自动补回每日额度，也可以在这里手动重置今天的剩余额度。</span>
+                  </div>
+                  <div className="announcement-preview">
+                    <span className="announcement-preview-badge">
+                      <HeartHandshake size={15} />
+                      公益卡密预览
+                    </span>
+                    <h3>{publicCardData.config.enabled ? "公益体验已开启" : "公益体验未开启"}</h3>
+                    <div className="announcement-preview-content">
+                      <p>{publicCardData.config.note || "公益卡密共用一个额度池，每天按北京时间自动重置。"}</p>
+                      <p>剩余额度：{publicCardData.remainingPoints} 点，卡密预览：{publicCardData.config.codePreview || "未设置"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AdminPanel>
+          )}
+
           {activeSection === "announcement" && (
             <AdminPanel title="网站弹窗公告" badge={announcementData.enabled ? "发布中" : "未发布"}>
               <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -652,7 +844,7 @@ export default function AdminPage() {
                           <td className="py-3 font-mono">{item.account}</td>
                           <td><RolePill role={item.role} /></td>
                           <td>{item.points}</td>
-                          <td>{item.role === "admin" ? "长期有效" : item.expires_at || "-"}</td>
+                          <td>{item.role === "admin" ? "长期有效" : item.role === "public" ? "每日共享额度" : item.expires_at || "-"}</td>
                           <td>{item.created_at}</td>
                         </tr>
                       ))}
@@ -728,7 +920,7 @@ function TaskTable({ tasks }: { tasks: Overview["tasks"] }) {
 }
 
 function RolePill({ role }: { role: string }) {
-  return <span className={role === "admin" ? "role-pill role-pill-admin" : "role-pill"}>{formatRole(role)}</span>;
+  return <span className={rolePillClassName(role)}>{formatRole(role)}</span>;
 }
 
 function AdminSelect({
@@ -777,7 +969,13 @@ function AdminSelect({
 }
 
 function formatRole(role: string) {
-  return role === "admin" ? "管理员" : "用户";
+  if (role === "admin") {
+    return "管理员";
+  }
+  if (role === "public") {
+    return "公益";
+  }
+  return "用户";
 }
 
 function formatValidity(validityDays: number | null, role: string) {
@@ -791,10 +989,23 @@ function formatCardExpiry(item: { status: string; expires_at: string | null; rol
   if (item.role === "admin") {
     return "长期有效";
   }
+  if (item.role === "public") {
+    return "每日共享额度";
+  }
   if (item.status === "unused") {
     return "未兑换长期有效";
   }
   return item.expires_at || "-";
+}
+
+function rolePillClassName(role: string) {
+  if (role === "admin") {
+    return "role-pill role-pill-admin";
+  }
+  if (role === "public") {
+    return "role-pill role-pill-public";
+  }
+  return "role-pill";
 }
 
 function formatSource(source: string) {

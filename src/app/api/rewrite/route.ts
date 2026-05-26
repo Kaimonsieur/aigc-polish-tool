@@ -5,6 +5,7 @@ import { DEFAULT_REWRITE_MODE, REWRITE_LIMITS, RewriteMode, REWRITE_MODES } from
 import { getDb, getOne } from "@/lib/db";
 import { extractDocumentText } from "@/lib/document";
 import { fail, ok } from "@/lib/http";
+import { getPublicCardConfig } from "@/lib/public-card";
 import { purgeExpiredRewriteData } from "@/lib/retention";
 import { buildRewriteTaskPayload, getRewriteTaskForUser, startRewriteTask } from "@/lib/rewrite-task";
 import { randomId } from "@/lib/security";
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
 
   try {
     const user = await requireUserFromRequest(request);
+    if (user.role === "public" && !getPublicCardConfig().enabled) {
+      return fail("公益卡密已关闭，请使用付费卡密后再提交润色。", 403, request);
+    }
+
     const payload = await readPayload(request);
     const mode = REWRITE_MODES[payload.mode] ? payload.mode : DEFAULT_REWRITE_MODE;
     const chars = countTextChars(payload.text);
@@ -63,7 +68,10 @@ export async function POST(request: Request) {
       today,
     );
     const usedFree =
-      payload.sourceType === "text" && chars <= REWRITE_LIMITS.freeChars && (free?.used_count || 0) < 1;
+      user.role !== "public" &&
+      payload.sourceType === "text" &&
+      chars <= REWRITE_LIMITS.freeChars &&
+      (free?.used_count || 0) < 1;
     const costPoints = usedFree ? 0 : estimatePoints(chars);
 
     if (!Number.isFinite(costPoints)) {
@@ -97,12 +105,17 @@ export async function POST(request: Request) {
            ON CONFLICT(user_id, day) DO UPDATE SET used_count = used_count + 1`,
         ).run(user.id, today);
       } else if (costPoints > 0) {
-        const nextBalance = user.points - costPoints;
+        const current = getOne<{ points: number }>("SELECT points FROM users WHERE id = ?", user.id);
+        const currentPoints = current?.points ?? user.points;
+        if (currentPoints < costPoints) {
+          throw new Error(`点数不足，本次需要 ${costPoints} 点，当前余额 ${currentPoints} 点`);
+        }
+        const nextBalance = currentPoints - costPoints;
         db.prepare("UPDATE users SET points = ? WHERE id = ?").run(nextBalance, user.id);
         db.prepare(
           `INSERT INTO credit_logs (user_id, change_points, balance_after, type, ref_type, ref_id, note)
            VALUES (?, ?, ?, 'rewrite_cost', 'rewrite_task', ?, ?)`,
-        ).run(user.id, -costPoints, nextBalance, taskId, "AIGC润色自动扣点");
+        ).run(user.id, -costPoints, nextBalance, taskId, user.role === "public" ? "公益池润色扣点" : "AIGC润色自动扣点");
       }
 
       db.exec("COMMIT");

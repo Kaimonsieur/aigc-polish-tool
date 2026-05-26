@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
 import { getOne, run } from "@/lib/db";
+import { refreshPublicCardQuotaForUser } from "@/lib/public-card";
 import { randomId } from "@/lib/security";
 
 export type User = {
   id: number;
   account: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "public";
   points: number;
   expires_at: string | null;
   created_at: string;
@@ -71,12 +72,12 @@ export function getUserBySessionId(sessionId: string | null | undefined) {
     return null;
   }
 
-  if (user.role !== "admin" && user.expires_at && new Date(user.expires_at).getTime() < Date.now()) {
+  if (user.role !== "admin" && user.role !== "public" && user.expires_at && new Date(user.expires_at).getTime() < Date.now()) {
     run("DELETE FROM sessions WHERE id = ?", sessionId);
     return null;
   }
 
-  return user;
+  return refreshPublicCardQuotaForUser(user);
 }
 
 export function getCurrentUserFromRequest(request: Request) {
