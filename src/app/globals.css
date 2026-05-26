@@ -390,6 +390,7 @@ textarea {
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
+  z-index: 90;
   width: min(280px, calc(100vw - 40px));
   border: 1px solid #eeeeee;
   border-radius: 16px;
@@ -969,6 +970,8 @@ textarea {
 }
 
 .pane-head {
+  position: relative;
+  z-index: 50;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.65rem;
@@ -1000,12 +1003,7 @@ textarea {
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.pane-actions::-webkit-scrollbar {
-  display: none;
+  overflow: visible;
 }
 
 .pane-action-button,
