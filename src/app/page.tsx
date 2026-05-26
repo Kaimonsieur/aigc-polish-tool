@@ -790,7 +790,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="editor-pane">
+            <div className={modeMenuOpen ? "editor-pane editor-pane-menu-open" : "editor-pane"}>
               <div className="pane-head">
                 <div className="pane-title-row">
                   <div className="pane-title-left">

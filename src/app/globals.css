@@ -960,6 +960,10 @@ textarea {
   transition: transform 0.25s ease, border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.editor-pane-menu-open {
+  overflow: visible;
+}
+
 .editor-pane:hover {
   transform: translateY(-2px);
 }
