@@ -2,7 +2,7 @@ import { getCurrentUserFromRequest, getCurrentUser } from "@/lib/auth";
 import { corsOptions } from "@/lib/cors";
 import { getAll, getOne } from "@/lib/db";
 import { ok } from "@/lib/http";
-import { notExpiredSql, purgeExpiredRewriteData, TASK_RETENTION_HOURS } from "@/lib/retention";
+import { notExpiredSql, purgeExpiredRewriteData, retentionLabelForRole, retentionMinutesForRole } from "@/lib/retention";
 
 export async function GET(request: Request) {
   purgeExpiredRewriteData();
@@ -40,7 +40,8 @@ export async function GET(request: Request) {
     freeUsedToday: free?.used_count || 0,
     usage,
     credits,
-    retentionHours: TASK_RETENTION_HOURS,
+    retentionMinutes: retentionMinutesForRole(user.role),
+    retentionLabel: retentionLabelForRole(user.role),
   }, request);
 }
 

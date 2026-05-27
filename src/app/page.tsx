@@ -73,6 +73,8 @@ type MeData = {
   user: { account: string; points: number; role: "user" | "admin" | "public"; created_at: string } | null;
   freeUsedToday?: number;
   retentionHours?: number;
+  retentionMinutes?: number;
+  retentionLabel?: string;
   usage?: Array<{
     id: string;
     source_type: string;
@@ -118,8 +120,8 @@ const features = [
   },
   {
     no: "03",
-    title: "24小时记录",
-    body: "润色结果和文档只保留24小时，期间可凭卡密查询和下载，过期后自动删除。",
+    title: "限时记录",
+    body: "付费卡密结果保留24小时，公益卡密结果保留10分钟，期间可凭卡密查询和下载，过期后自动删除。",
     Icon: ShieldCheck,
   },
   {
@@ -145,7 +147,7 @@ const faqs = [
   ],
   ["额度是如何计算的？", "按输入字数扣点，5000字以内扣1点，超过后按档位扣点。接口失败或处理失败会自动退回点数。"],
   ["单次改写的文本长度有限制吗？", "单次最多处理30000字。长文档建议拆分章节处理，方便检查润色结果。"],
-  ["我的论文隐私如何保障？", "润色记录和文档只保留24小时，过期后自动删除。请在24小时内完成查询和下载。"],
+  ["我的论文隐私如何保障？", "付费卡密记录和文档只保留24小时，公益卡密记录和文档只保留10分钟，过期后自动删除。请及时完成查询和下载。"],
 ];
 
 function countChars(text: string) {
@@ -279,6 +281,7 @@ export default function Home() {
   const currentDownloadText = resultText.trim();
   const isPublicUser = me?.user?.role === "public";
   const detectSwitchOn = detectAfterRewrite && !isPublicUser;
+  const retentionLabel = me?.retentionLabel || (isPublicUser ? "10分钟" : `${me?.retentionHours || 24}小时`);
 
   async function refreshMe() {
     const body = await apiFetch("/api/me").then((response) => response.json());
@@ -534,7 +537,7 @@ export default function Home() {
       refreshMe();
     } catch (error) {
       if (controller.signal.aborted || rewriteRunRef.current !== runId) return;
-      setMessage("润色任务提交或查询失败，请稍后重试；已提交的任务可在24小时记录中查看。");
+      setMessage("润色任务提交或查询失败，请稍后重试；已提交的任务可在记录区查看。");
     } finally {
       if (rewriteRunRef.current === runId) {
         setLoading(false);
@@ -717,7 +720,7 @@ export default function Home() {
                     {me.user.points} 点
                   </p>
                   <p className="mt-1 text-xs text-[#777]">
-                    记录和文档保留 {me.retentionHours || 24} 小时，过期后自动删除
+                    记录和文档保留 {retentionLabel}，过期后自动删除
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -727,7 +730,7 @@ export default function Home() {
                     </Link>
                   )}
                   <button className="button-secondary px-4 py-2 text-sm font-bold" onClick={() => setRecordsOpen((value) => !value)} type="button">
-                    24小时记录
+                    {isPublicUser ? "10分钟记录" : "24小时记录"}
                   </button>
                   <button className="button-secondary flex items-center gap-2 px-4 py-2 text-sm font-bold" onClick={logout} type="button">
                     <LogOut size={15} />
@@ -739,7 +742,7 @@ export default function Home() {
               <>
                 <div>
                   <p className="text-sm font-black text-[#111]">使用卡密后开始正式润色</p>
-                  <p className="mt-1 text-xs text-[#777]">同一卡密可在24小时内查询记录并下载 TXT / DOCX</p>
+                  <p className="mt-1 text-xs text-[#777]">同一卡密可在{retentionLabel}内查询记录并下载 TXT / DOCX</p>
                 </div>
                 <Link className="button-primary px-5 py-2 text-sm" href="/login">
                   卡密登录
@@ -768,7 +771,7 @@ export default function Home() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-[#777]">暂无24小时内的润色记录。</p>
+                <p className="text-sm text-[#777]">暂无{retentionLabel}内的润色记录。</p>
               )}
             </div>
           )}
@@ -995,7 +998,7 @@ export default function Home() {
               <div className="grid gap-2 border-t border-[#f1f1f1] bg-[#fbfbfb] px-5 py-3 text-sm text-[#777] md:grid-cols-4">
                 {taskDone && result?.taskId ? (
                   <>
-                    <span>{currentDownloadText ? "右侧内容可下载" : "24小时内可下载"}</span>
+                    <span>{currentDownloadText ? "右侧内容可下载" : `${retentionLabel}内可下载`}</span>
                     <button
                       className="flex items-center gap-1 font-bold text-[#111] disabled:text-[#aaa]"
                       disabled={!currentDownloadText}
@@ -1017,7 +1020,7 @@ export default function Home() {
                     <span>{result.usedFree ? "免费额度" : `扣 ${result.costPoints} 点`}</span>
                   </>
                 ) : (
-                  <span className="md:col-span-4">示例为自生成文本，按平实降 AIGC 指令润色。正式结果保留24小时。</span>
+                  <span className="md:col-span-4">示例为自生成文本，按平实降 AIGC 指令润色。付费结果保留24小时，公益结果保留10分钟。</span>
                 )}
               </div>
             </div>
@@ -1143,7 +1146,7 @@ export default function Home() {
                 title="隐私政策"
                 items={[
                   ["1. 数据收集与使用", "我们仅收集您主动提交的文本、文档和卡密使用信息，用于完成润色、扣点和结果查询。"],
-                  ["2. 数据存储与删除", "润色记录和相关文档只保留24小时，超过时间后系统会自动删除，不再提供查询和下载。"],
+                  ["2. 数据存储与删除", "付费卡密的润色记录和相关文档只保留24小时，公益卡密只保留10分钟，超过时间后系统会自动删除，不再提供查询和下载。"],
                   ["3. 第三方服务", "处理文本时会调用大语言模型接口，但不会主动提交您的联系方式和支付信息。"],
                   ["4. 安全保障", "系统使用服务端扣点和会话校验，避免卡密被重复滥用。"],
                 ]}
@@ -1156,7 +1159,7 @@ export default function Home() {
                   ["1. 服务内容", "本工具提供文本润色和降低机器感服务，结果仅供表达优化参考。"],
                   ["2. 用户义务", "用户应自行确认文本用途合规，不得用于违法、侵权或违反学校规定的场景。"],
                   ["3. 免责声明", "不同检测平台规则不同，平台不承诺任何检测结果一定通过。"],
-                  ["4. 记录期限", "润色结果仅保留24小时，请及时下载。过期删除后无法恢复。"],
+                  ["4. 记录期限", "付费卡密结果仅保留24小时，公益卡密结果仅保留10分钟，请及时下载。过期删除后无法恢复。"],
                 ]}
               />
             )}

@@ -62,7 +62,7 @@ export default function LoginPage() {
         <div className="text-center">
           <Image className="brand-logo mx-auto mb-4" src="/brand-logo.png" alt="论文降AIGC" width={196} height={67} priority />
           <h1 className="text-3xl font-black">开通服务</h1>
-          <p className="mt-2 text-[#777]">购买后获得卡密，输入同一卡密可查询24小时内记录和下载文档</p>
+          <p className="mt-2 text-[#777]">购买后获得卡密，付费记录24小时内可查询和下载</p>
         </div>
 
         <div className="plan-grid mt-8">

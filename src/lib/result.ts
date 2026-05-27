@@ -32,7 +32,7 @@ export async function getResultTask(request: Request): Promise<ResultTaskSuccess
   );
 
   if (!task?.output_text) {
-    return { error: "没有可查看的润色结果，记录可能已超过24小时", status: 404 as const };
+    return { error: user.role === "public" ? "没有可查看的润色结果，公益记录可能已超过10分钟" : "没有可查看的润色结果，记录可能已超过24小时", status: 404 as const };
   }
 
   return { task };

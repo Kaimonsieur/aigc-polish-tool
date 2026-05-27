@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   const task = getRewriteTaskForUser(id, user.id);
   if (!task) {
-    return fail("任务不存在或已超过24小时", 404, request);
+    return fail(user.role === "public" ? "任务不存在或公益记录已超过10分钟" : "任务不存在或已超过24小时", 404, request);
   }
 
   return ok(buildRewriteTaskPayload(task), request);

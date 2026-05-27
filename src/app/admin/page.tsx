@@ -852,7 +852,7 @@ export default function AdminPage() {
                   </table>
                 </div>
               </AdminPanel>
-              <AdminPanel title="润色任务" badge="24小时内">
+              <AdminPanel title="润色任务" badge="有效期内">
                 <TaskTable tasks={overview.tasks} />
               </AdminPanel>
             </div>
